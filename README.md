@@ -29,10 +29,33 @@ Multi-line transcripts are flattened onto the bullet's single line.
 ## Setup
 
 1. In the Pebble app, set the Obsidian integration to **One main note**
-   (the mode that appends to `Pebble Index.md`).
+   (the mode that appends to `Pebble Index.md`). This must be the app's
+   *built-in* integration — see the note about the Plugins preview below.
 2. Install this plugin (see below).
 3. Done — it drains on startup and whenever `Pebble Index.md` changes.
    You can also run it manually from the command palette.
+
+### Requirement: the built-in integration, not the Pebble "Plugins" preview
+
+This plugin reads `Pebble Index.md`, a file written by the Pebble app's
+**built-in** Obsidian integration. It does not work with the Pebble app's
+**Plugins** feature (in the Pebble app: Settings → Plugins →
+"Plugins / permissions preview"). That feature is a developer preview of a
+new extensibility system in the Pebble mobile app — not to be confused
+with Obsidian community plugins such as this one.
+
+While the Plugins preview is on, note destinations are provided by Pebble
+plugins instead of the built-in integrations, and the built-in Obsidian
+integration stops appending to `Pebble Index.md` — so there is nothing for
+Daily Drain to file.
+
+**Keep the Plugins preview OFF.** If your notes suddenly stop arriving in
+Obsidian:
+
+1. Pebble app → Settings → Plugins → turn the preview off.
+2. Restart the Pebble app.
+3. Record a short test note and check that `Pebble Index.md` gains a new
+   `## YYYY-MM-DD HH:MM` entry.
 
 ## Install
 
