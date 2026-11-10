@@ -23,15 +23,38 @@ next to everything else in that day.
 3. Done — it drains on startup and whenever `Pebble Index.md` changes.
    You can also run it manually from the command palette.
 
-## Install (manual)
+## Install
 
-1. Download `main.js`, `manifest.json` (and `versions.json`) from this repo.
+### Install with BRAT
+
+1. Install the `BRAT` plugin from Obsidian Community Plugins
+2. Open `BRAT` settings
+3. Choose `Add Beta plugin`
+4. Enter `https://github.com/lighty/pebble-daily-drain`
+5. Install and enable `Pebble Daily Drain`
+
+BRAT expects this repository to publish GitHub Releases. If installation fails, make sure you are using a released version instead of an unreleased commit.
+
+### Manual install
+
+1. Download `main.js`, `manifest.json` (and `versions.json`) from this repo or from a release.
 2. Copy them into your vault at:
    `.obsidian/plugins/pebble-daily-drain/`
 3. In Obsidian: Settings → Community plugins → enable **Pebble Daily Drain**.
 
 If you use Obsidian Sync with plugin sync enabled, the plugin propagates to
 your other devices automatically.
+
+## Releases
+
+This repository publishes GitHub Releases for BRAT. Each release includes
+these assets:
+
+- `main.js`
+- `manifest.json`
+
+Releases are built automatically by GitHub Actions when a version tag
+(e.g. `0.1.0`) is pushed.
 
 ## Commands
 
