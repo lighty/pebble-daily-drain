@@ -53,8 +53,9 @@ these assets:
 - `main.js`
 - `manifest.json`
 
-Releases are built automatically by GitHub Actions when a version tag
-(e.g. `0.1.0`) is pushed.
+To cut a release: tag the version (e.g. `0.1.0`), then create a GitHub
+Release for that tag with `main.js` and `manifest.json` attached as
+individual assets.
 
 ## Commands
 
