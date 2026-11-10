@@ -11,17 +11,16 @@ import {
 import {
   PebbleEntry,
   formatDailyFileName,
-  formatEntry,
   groupByDate,
   idsPresentInDailyBody,
+  insertEntriesIntoDaily,
   parsePebbleIndex,
-  HeadingStyle,
 } from "./core";
 
 interface DailyDrainSettings {
   sourcePath: string;
   dailyFolderOverride: string;
-  headingStyle: HeadingStyle;
+  sectionTitle: string;
   autoOnStartup: boolean;
   autoOnModify: boolean;
 }
@@ -29,7 +28,7 @@ interface DailyDrainSettings {
 const DEFAULT_SETTINGS: DailyDrainSettings = {
   sourcePath: "Pebble Index.md",
   dailyFolderOverride: "",
-  headingStyle: "time",
+  sectionTitle: "pebble",
   autoOnStartup: true,
   autoOnModify: true,
 };
@@ -181,11 +180,9 @@ export default class PebbleDailyDrain extends Plugin {
           file = await this.app.vault.create(plan.path, initial);
         }
 
-        const blocks = plan.fresh.map((e) => formatEntry(e, this.settings.headingStyle));
-        await this.app.vault.process(file, (data) => {
-          const sep = data.endsWith("\n") ? "\n" : "\n\n";
-          return data + sep + blocks.join("\n\n") + "\n";
-        });
+        await this.app.vault.process(file, (data) =>
+          insertEntriesIntoDaily(data, plan.fresh, this.settings.sectionTitle)
+        );
         // Register ids AFTER the body is written: if the app dies in between,
         // the body-based fallback still prevents duplicates on the next run.
         const ids = plan.fresh.map((e) => e.id);
@@ -293,15 +290,14 @@ class DailyDrainSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Heading style in daily notes")
-      .setDesc("\"Time only\" writes ## HH:MM; \"Original\" keeps ## YYYY-MM-DD HH:MM.")
-      .addDropdown((dd) =>
-        dd
-          .addOption("time", "Time only (## HH:MM)")
-          .addOption("original", "Original (## YYYY-MM-DD HH:MM)")
-          .setValue(this.plugin.settings.headingStyle)
+      .setName("Section heading")
+      .setDesc("Entries are filed as bullets under this heading in the daily note.")
+      .addText((text) =>
+        text
+          .setPlaceholder("pebble")
+          .setValue(this.plugin.settings.sectionTitle)
           .onChange(async (value) => {
-            this.plugin.settings.headingStyle = value as HeadingStyle;
+            this.plugin.settings.sectionTitle = value.trim() || "pebble";
             await this.plugin.saveSettings();
           })
       );

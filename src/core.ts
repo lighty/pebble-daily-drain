@@ -39,12 +39,22 @@ function normalizeBody(raw: string): string {
 }
 
 /**
+ * Flatten a body to a single line: entries are filed as list items, so
+ * line breaks become spaces. The dedupe id is computed from this flattened
+ * form, so the id recomputed from a filed bullet always matches the id
+ * computed from the (possibly multi-line) source entry.
+ */
+export function flattenBody(raw: string): string {
+  return normalizeBody(raw).replace(/\s*\n\s*/g, " ").replace(/ {2,}/g, " ").trim();
+}
+
+/**
  * Build the deterministic id for an entry.
  * Format: `YYYYMMDD-HHMM-<10 hex chars>` — deliberately contains no `:`
  * so it is a safe plain scalar in YAML frontmatter.
  */
 export function entryId(date: string, time: string, body: string): string {
-  const digest = hash53(`${date} ${time}\n${normalizeBody(body)}`).slice(0, 10);
+  const digest = hash53(`${date} ${time}\n${flattenBody(body)}`).slice(0, 10);
   return `${date.replace(/-/g, "")}-${time.replace(":", "")}-${digest}`;
 }
 
@@ -103,23 +113,89 @@ export function groupByDate(entries: PebbleEntry[]): Map<string, PebbleEntry[]> 
   return new Map([...map.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 }
 
-export type HeadingStyle = "time" | "original";
+const BULLET = /^- (\d{2}):(\d{2}) : (.+)$/;
 
-/** Render one entry as it will appear inside the daily note. */
-export function formatEntry(entry: PebbleEntry, style: HeadingStyle): string {
-  const heading = style === "original" ? `## ${entry.date} ${entry.time}` : `## ${entry.time}`;
-  return `${heading}\n\n${entry.body}`;
+/** Render one entry as a bullet for the daily note: `- HH:MM : text`. */
+export function formatBullet(entry: PebbleEntry): string {
+  return `- ${entry.time} : ${flattenBody(entry.body)}`;
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Insert entries into a daily note's content, as bullets under a
+ * `## <sectionTitle>` section (default title: `pebble`):
+ *
+ *     ## pebble
+ *     - 20:01 : first note
+ *     - 20:54 : second note
+ *
+ * If the section already exists, the bullets are appended after its last
+ * existing bullet (before the next `##` heading). Otherwise a new section
+ * is appended at the end of the note.
+ */
+export function insertEntriesIntoDaily(
+  content: string,
+  entries: PebbleEntry[],
+  sectionTitle: string
+): string {
+  if (entries.length === 0) return content;
+  const bullets = entries.map(formatBullet);
+  const text = content.replace(/\r\n/g, "\n");
+  const lines = text.split("\n");
+  const headingRe = new RegExp(`^##\\s+${escapeRegExp(sectionTitle)}\\s*$`, "i");
+  const headingIdx = lines.findIndex((l) => headingRe.test(l));
+
+  if (headingIdx === -1) {
+    const base = text.replace(/\s+$/, "");
+    const section = `## ${sectionTitle}\n\n${bullets.join("\n")}\n`;
+    return base ? `${base}\n\n${section}` : section;
+  }
+
+  // Section ends at the next level-2 heading, or at end of file.
+  let end = lines.length;
+  for (let i = headingIdx + 1; i < lines.length; i++) {
+    if (/^##\s+/.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+  // Insert after the last existing bullet in the section, if any;
+  // otherwise right after the heading (and its following blank line).
+  let insertAt = -1;
+  for (let i = end - 1; i > headingIdx; i--) {
+    if (BULLET.test(lines[i])) {
+      insertAt = i + 1;
+      break;
+    }
+  }
+  if (insertAt === -1) {
+    insertAt = headingIdx + 1;
+    if (insertAt < lines.length && lines[insertAt].trim() === "") insertAt++;
+  }
+  lines.splice(insertAt, 0, ...bullets);
+  return lines.join("\n").replace(/\s+$/, "") + "\n";
 }
 
 /**
  * Fallback dedupe: recompute the ids of entries already present in a daily
- * note, by scanning its `## HH:MM` (or `## YYYY-MM-DD HH:MM`) blocks.
+ * note. Recognises the current bullet format (`- HH:MM : text`) anywhere in
+ * the note, plus the legacy v0.1 heading blocks (`## HH:MM` /
+ * `## YYYY-MM-DD HH:MM`).
  * This protects against duplicates even if the frontmatter registry
  * (`pebble_drained`) was lost in a sync conflict or deleted by hand.
  */
 export function idsPresentInDailyBody(dailyContent: string, dailyDate: string): Set<string> {
   const lines = dailyContent.replace(/\r\n/g, "\n").split("\n");
   const ids = new Set<string>();
+
+  for (const line of lines) {
+    const b = line.match(BULLET);
+    if (b) ids.add(entryId(dailyDate, `${b[1]}:${b[2]}`, b[3]));
+  }
+
   let current: { date: string; time: string; bodyLines: string[] } | null = null;
 
   const flush = () => {

@@ -2,10 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   entryId,
+  flattenBody,
+  formatBullet,
   formatDailyFileName,
-  formatEntry,
   groupByDate,
   idsPresentInDailyBody,
+  insertEntriesIntoDaily,
   parsePebbleIndex,
 } from "../src/core";
 
@@ -50,25 +52,60 @@ test("ids are deterministic, colon-free and body-sensitive", () => {
   assert.ok(!a.includes(":"));
 });
 
+test("id is the same for multi-line and flattened bodies", () => {
+  const multi = entryId("2026-11-10", "09:02", "Idea: a ring.\nSecond line.");
+  const flat = entryId("2026-11-10", "09:02", "Idea: a ring. Second line.");
+  assert.equal(multi, flat);
+});
+
 test("groups by date in ascending order", () => {
   const grouped = groupByDate(parsePebbleIndex(SAMPLE));
   assert.deepEqual([...grouped.keys()], ["2026-11-09", "2026-11-10"]);
   assert.equal(grouped.get("2026-11-10")?.length, 2);
 });
 
-test("formats entries for daily notes", () => {
-  const [e] = parsePebbleIndex(SAMPLE).slice(2);
-  assert.equal(formatEntry(e, "time"), "## 14:30\n\nCall the bank about the card.");
-  assert.equal(formatEntry(e, "original"), "## 2026-11-10 14:30\n\nCall the bank about the card.");
+test("flattens bodies and formats bullets", () => {
+  assert.equal(flattenBody("line one\nline two"), "line one line two");
+  const entries = parsePebbleIndex(SAMPLE);
+  assert.equal(formatBullet(entries[2]), "- 14:30 : Call the bank about the card.");
+  assert.equal(
+    formatBullet(entries[1]),
+    "- 09:02 : Idea: a ring that files its own notes. Second line of the same thought."
+  );
 });
 
-test("fallback: ids recomputed from a daily note's body match the source ids", () => {
+test("inserts a new pebble section into a fresh daily note", () => {
+  const entries = parsePebbleIndex(SAMPLE).filter((e) => e.date === "2026-11-10");
+  const out = insertEntriesIntoDaily("# 2026-11-10\n", entries, "pebble");
+  assert.equal(
+    out,
+    "# 2026-11-10\n\n## pebble\n\n" +
+      "- 09:02 : Idea: a ring that files its own notes. Second line of the same thought.\n" +
+      "- 14:30 : Call the bank about the card.\n"
+  );
+});
+
+test("appends bullets inside an existing pebble section, before the next section", () => {
+  const entries = parsePebbleIndex(SAMPLE).filter((e) => e.date === "2026-11-10");
+  const daily =
+    "# 2026-11-10\n\n## pebble\n\n- 09:02 : Idea: a ring that files its own notes. Second line of the same thought.\n\n## Journal\n\nDear diary.\n";
+  const out = insertEntriesIntoDaily(daily, [entries[1]], "pebble");
+  assert.ok(out.includes("- 09:02 : Idea: a ring that files its own notes. Second line of the same thought.\n- 14:30 : Call the bank about the card.\n\n## Journal"));
+});
+
+test("fallback: ids recomputed from filed bullets match the source ids", () => {
   const entries = parsePebbleIndex(SAMPLE);
   const day = entries.filter((e) => e.date === "2026-11-10");
-  const daily = `# 2026-11-10\n\n${day.map((e) => formatEntry(e, "time")).join("\n\n")}\n`;
+  const daily = insertEntriesIntoDaily("# 2026-11-10\n", day, "pebble");
   const found = idsPresentInDailyBody(daily, "2026-11-10");
   for (const e of day) assert.ok(found.has(e.id), `missing ${e.id}`);
   assert.ok(!found.has(entries[0].id));
+});
+
+test("fallback: legacy v0.1 heading blocks are still recognised", () => {
+  const daily = "# 2026-11-10\n\n## 14:30\n\nCall the bank about the card.\n";
+  const found = idsPresentInDailyBody(daily, "2026-11-10");
+  assert.ok(found.has(entryId("2026-11-10", "14:30", "Call the bank about the card.")));
 });
 
 test("daily file name formatting", () => {

@@ -9,6 +9,17 @@ single `Pebble Index.md`. This plugin periodically drains those entries into
 the daily note for the day each recording was made, so your ring notes live
 next to everything else in that day.
 
+Inside the daily note, entries are filed as a compact bullet list under a
+`## pebble` section:
+
+```markdown
+## pebble
+- 20:01 : Feeling good today
+- 20:54 : Apparently the One Piece manga is great
+```
+
+Multi-line transcripts are flattened onto the bullet's single line.
+
 - No server, no webhook. Runs entirely inside Obsidian, on mobile too
   (iPhone included) — only the Vault API is used.
 - Non-destructive: `Pebble Index.md` is never modified or deleted.
@@ -69,7 +80,7 @@ individual assets.
 | --- | --- | --- |
 | Source note | `Pebble Index.md` | The note the Pebble app appends to. |
 | Daily notes folder override | *(empty)* | Empty = use the Daily Notes core plugin's folder/format/template. |
-| Heading style in daily notes | Time only | `## HH:MM`, or keep the original `## YYYY-MM-DD HH:MM`. |
+| Section heading | `pebble` | Entries are filed as bullets under this heading. |
 | Run on startup | On | Runs a few seconds after launch, to let sync settle. |
 | Run when the source note changes | On | Debounced. |
 
@@ -93,8 +104,8 @@ pebble_drained:
 Before filing, the plugin checks two things:
 
 1. the `pebble_drained` frontmatter list, and
-2. a fallback: IDs recomputed from the daily note's existing entries
-   (heading + body), so even if the frontmatter is lost — e.g. to an
+2. a fallback: IDs recomputed from the daily note's existing bullets
+   (`- HH:MM : text`), so even if the frontmatter is lost — e.g. to an
    Obsidian Sync conflict — unedited entries are not filed twice.
 
 If you hand-edit a filed entry's body, the frontmatter ID still protects it;
@@ -118,6 +129,11 @@ Layout: `src/core.ts` is pure logic with no Obsidian imports (unit-tested);
 
 ## Status / limitations
 
+- **v0.2.0** — daily-note format changed: entries are filed as bullets
+  (`- HH:MM : text`) under a `## pebble` section instead of one heading
+  per entry. Dedupe IDs are now computed from the flattened single-line
+  text, so IDs from v0.1.0 filings differ; the frontmatter registry and
+  the legacy heading fallback still prevent re-filing in practice.
 - **v0.1.0** — assumes the Pebble app's "One main note" format
   (`## YYYY-MM-DD HH:MM` headings, body until the next heading), as
   documented for the integration. Verification against a real-world

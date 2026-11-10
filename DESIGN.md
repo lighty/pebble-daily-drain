@@ -28,7 +28,11 @@ until the next heading. The plugin:
    (`.obsidian/daily-notes.json`: folder, format, template).
 3. Creates `<folder>/YYYY-MM-DD.md` if missing, applying the configured
    template itself (the core plugin's creation path is not invoked).
-4. Appends each entry as `## HH:MM` + body (heading style is a setting).
+4. Appends each entry as a bullet `- HH:MM : text` under a `## pebble`
+   section in that day's note (section title is a setting; the section is
+   created at the end of the note if missing, and bullets are appended
+   inside it if it already exists). Multi-line transcripts are flattened
+   to one line.
 5. Records the entry's ID in the destination's frontmatter registry.
 
 Triggers: on layout ready (with a settle delay for Sync), on source-file

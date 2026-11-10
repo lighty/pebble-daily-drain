@@ -42,9 +42,12 @@ function hash53(str, seed = 0) {
 function normalizeBody(raw) {
   return raw.replace(/\r\n/g, "\n").replace(/[ \t]+$/gm, "").trim();
 }
+function flattenBody(raw) {
+  return normalizeBody(raw).replace(/\s*\n\s*/g, " ").replace(/ {2,}/g, " ").trim();
+}
 function entryId(date, time, body) {
   const digest = hash53(`${date} ${time}
-${normalizeBody(body)}`).slice(0, 10);
+${flattenBody(body)}`).slice(0, 10);
   return `${date.replace(/-/g, "")}-${time.replace(":", "")}-${digest}`;
 }
 function parsePebbleIndex(content) {
@@ -86,15 +89,58 @@ function groupByDate(entries) {
   }
   return new Map([...map.entries()].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
 }
-function formatEntry(entry, style) {
-  const heading = style === "original" ? `## ${entry.date} ${entry.time}` : `## ${entry.time}`;
-  return `${heading}
+var BULLET = /^- (\d{2}):(\d{2}) : (.+)$/;
+function formatBullet(entry) {
+  return `- ${entry.time} : ${flattenBody(entry.body)}`;
+}
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function insertEntriesIntoDaily(content, entries, sectionTitle) {
+  if (entries.length === 0) return content;
+  const bullets = entries.map(formatBullet);
+  const text = content.replace(/\r\n/g, "\n");
+  const lines = text.split("\n");
+  const headingRe = new RegExp(`^##\\s+${escapeRegExp(sectionTitle)}\\s*$`, "i");
+  const headingIdx = lines.findIndex((l) => headingRe.test(l));
+  if (headingIdx === -1) {
+    const base = text.replace(/\s+$/, "");
+    const section = `## ${sectionTitle}
 
-${entry.body}`;
+${bullets.join("\n")}
+`;
+    return base ? `${base}
+
+${section}` : section;
+  }
+  let end = lines.length;
+  for (let i = headingIdx + 1; i < lines.length; i++) {
+    if (/^##\s+/.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+  let insertAt = -1;
+  for (let i = end - 1; i > headingIdx; i--) {
+    if (BULLET.test(lines[i])) {
+      insertAt = i + 1;
+      break;
+    }
+  }
+  if (insertAt === -1) {
+    insertAt = headingIdx + 1;
+    if (insertAt < lines.length && lines[insertAt].trim() === "") insertAt++;
+  }
+  lines.splice(insertAt, 0, ...bullets);
+  return lines.join("\n").replace(/\s+$/, "") + "\n";
 }
 function idsPresentInDailyBody(dailyContent, dailyDate) {
   const lines = dailyContent.replace(/\r\n/g, "\n").split("\n");
   const ids = /* @__PURE__ */ new Set();
+  for (const line of lines) {
+    const b = line.match(BULLET);
+    if (b) ids.add(entryId(dailyDate, `${b[1]}:${b[2]}`, b[3]));
+  }
   let current = null;
   const flush = () => {
     if (!current) return;
@@ -127,7 +173,7 @@ function formatDailyFileName(format, date) {
 var DEFAULT_SETTINGS = {
   sourcePath: "Pebble Index.md",
   dailyFolderOverride: "",
-  headingStyle: "time",
+  sectionTitle: "pebble",
   autoOnStartup: true,
   autoOnModify: true
 };
@@ -248,11 +294,10 @@ var PebbleDailyDrain = class extends import_obsidian.Plugin {
           }
           file = await this.app.vault.create(plan.path, initial);
         }
-        const blocks = plan.fresh.map((e) => formatEntry(e, this.settings.headingStyle));
-        await this.app.vault.process(file, (data) => {
-          const sep = data.endsWith("\n") ? "\n" : "\n\n";
-          return data + sep + blocks.join("\n\n") + "\n";
-        });
+        await this.app.vault.process(
+          file,
+          (data) => insertEntriesIntoDaily(data, plan.fresh, this.settings.sectionTitle)
+        );
         const ids = plan.fresh.map((e) => e.id);
         await this.app.fileManager.processFrontMatter(file, (fm) => {
           const current = fm[REGISTRY_KEY];
@@ -327,9 +372,9 @@ var DailyDrainSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Heading style in daily notes").setDesc('"Time only" writes ## HH:MM; "Original" keeps ## YYYY-MM-DD HH:MM.').addDropdown(
-      (dd) => dd.addOption("time", "Time only (## HH:MM)").addOption("original", "Original (## YYYY-MM-DD HH:MM)").setValue(this.plugin.settings.headingStyle).onChange(async (value) => {
-        this.plugin.settings.headingStyle = value;
+    new import_obsidian.Setting(containerEl).setName("Section heading").setDesc("Entries are filed as bullets under this heading in the daily note.").addText(
+      (text) => text.setPlaceholder("pebble").setValue(this.plugin.settings.sectionTitle).onChange(async (value) => {
+        this.plugin.settings.sectionTitle = value.trim() || "pebble";
         await this.plugin.saveSettings();
       })
     );
