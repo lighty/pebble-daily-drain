@@ -21,6 +21,7 @@ interface DailyDrainSettings {
   sourcePath: string;
   dailyFolderOverride: string;
   sectionTitle: string;
+  pluginTag: string;
   autoOnStartup: boolean;
   autoOnModify: boolean;
 }
@@ -29,6 +30,7 @@ const DEFAULT_SETTINGS: DailyDrainSettings = {
   sourcePath: "Pebble Index.md",
   dailyFolderOverride: "",
   sectionTitle: "pebble",
+  pluginTag: "",
   autoOnStartup: true,
   autoOnModify: true,
 };
@@ -113,7 +115,9 @@ export default class PebbleDailyDrain extends Plugin {
       new Notice(`Pebble Daily Drain: source note not found: ${sourcePath}`);
       return null;
     }
-    const entries = parsePebbleIndex(await this.app.vault.read(source));
+    const entries = parsePebbleIndex(await this.app.vault.read(source), {
+      pluginTag: this.settings.pluginTag,
+    });
     if (entries.length === 0) {
       new Notice("Pebble Daily Drain: no entries found in the source note.");
       return null;
@@ -265,7 +269,10 @@ class DailyDrainSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName("Source note")
-      .setDesc("The note the Pebble app appends to (\"One main note\" mode).")
+      .setDesc(
+        "The note Pebble appends to: the built-in integration's \"One main note\", " +
+          "or the note selected in the Obsidian/Markdown Notes plugin's append mode."
+      )
       .addText((text) =>
         text
           .setPlaceholder("Pebble Index.md")
@@ -298,6 +305,23 @@ class DailyDrainSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.sectionTitle)
           .onChange(async (value) => {
             this.plugin.settings.sectionTitle = value.trim() || "pebble";
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName("Pebble plugin tag")
+      .setDesc(
+        "Only for the Obsidian/Markdown Notes plugin: if you set a tag there, " +
+          "the plugin appends \" #tag\" to every note. Enter the same tag here " +
+          "(without #) to strip it from filed entries. Leave empty if unset."
+      )
+      .addText((text) =>
+        text
+          .setPlaceholder("(none)")
+          .setValue(this.plugin.settings.pluginTag)
+          .onChange(async (value) => {
+            this.plugin.settings.pluginTag = value.trim().replace(/^#/, "");
             await this.plugin.saveSettings();
           })
       );

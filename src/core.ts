@@ -58,8 +58,44 @@ export function entryId(date: string, time: string, body: string): string {
   return `${date.replace(/-/g, "")}-${time.replace(":", "")}-${digest}`;
 }
 
+export interface ParseOptions {
+  /**
+   * The tag configured in the Pebble app's Obsidian/Markdown Notes plugin
+   * (without the leading `#`). That plugin appends ` #<tag>` to the end of
+   * every note text it writes; when the tag is given here, the suffix is
+   * stripped so daily-note bullets (and dedupe ids) stay clean.
+   */
+  pluginTag?: string;
+}
+
 /**
- * Parse a `Pebble Index.md` file in the Pebble app's "One main note" format:
+ * Lines the Obsidian/Markdown Notes plugin appends after the note text
+ * when the agent supplies a location. They are plugin-generated metadata
+ * (Obsidian inline fields), not transcript text, so the parser drops them.
+ */
+const LOCATION_LINE = /^\[(?:location|location_label)::.*\]\s*$/;
+
+/** Remove plugin-generated decorations from a raw entry body. */
+export function cleanPluginBody(raw: string, pluginTag?: string): string {
+  let body = normalizeBody(raw)
+    .split("\n")
+    .filter((line) => !LOCATION_LINE.test(line.trim()))
+    .join("\n");
+  body = normalizeBody(body);
+  const tag = (pluginTag ?? "").trim().replace(/^#/, "");
+  if (tag) {
+    const suffix = ` #${tag}`;
+    if (body.endsWith(suffix)) {
+      body = normalizeBody(body.slice(0, -suffix.length));
+    } else if (body === `#${tag}`) {
+      body = "";
+    }
+  }
+  return body;
+}
+
+/**
+ * Parse a `Pebble Index.md` file in the "One main note" format:
  *
  *     ## 2026-11-10 14:30
  *     transcript text...
@@ -67,17 +103,26 @@ export function entryId(date: string, time: string, body: string): string {
  *     ## 2026-11-10 15:02
  *     next transcript...
  *
+ * Two writers produce this exact shape, and both are supported:
+ *
+ * - the Pebble app's built-in Obsidian integration ("One main note"), and
+ * - the Pebble app's official Obsidian/Markdown Notes *plugin* in its
+ *   "append to an existing note" mode, which writes blocks of
+ *   `## YYYY-MM-DD HH:MM` + blank line + text (plus an optional trailing
+ *   ` #tag` and `[location:: …]` metadata lines, cleaned up via
+ *   {@link cleanPluginBody}).
+ *
  * Text before the first heading is ignored. Entries with an empty body
  * are skipped.
  */
-export function parsePebbleIndex(content: string): PebbleEntry[] {
+export function parsePebbleIndex(content: string, opts?: ParseOptions): PebbleEntry[] {
   const lines = content.replace(/\r\n/g, "\n").split("\n");
   const entries: PebbleEntry[] = [];
   let current: { date: string; time: string; bodyLines: string[] } | null = null;
 
   const flush = () => {
     if (!current) return;
-    const body = normalizeBody(current.bodyLines.join("\n"));
+    const body = cleanPluginBody(current.bodyLines.join("\n"), opts?.pluginTag);
     if (body) {
       entries.push({
         date: current.date,

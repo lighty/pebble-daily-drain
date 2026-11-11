@@ -112,3 +112,65 @@ test("daily file name formatting", () => {
   assert.equal(formatDailyFileName("YYYY-MM-DD", "2026-11-10"), "2026-11-10");
   assert.equal(formatDailyFileName("YYYY/MM/YYYY-MM-DD", "2026-01-05"), "2026/01/2026-01-05");
 });
+
+// --- Obsidian/Markdown Notes plugin format (v0.3.0) ---
+// Blocks exactly as written by the official Pebble plugin in append mode:
+// "## YYYY-MM-DD HH:MM" + blank line + text, blocks joined by a blank line.
+
+const PLUGIN_SAMPLE = `# Pebble Index
+
+## 2026-11-11 19:34
+
+First note via the plugin.
+
+## 2026-11-11 20:01
+
+Multi-line note
+second line here.
+
+## 2026-11-11 21:12
+
+Tagged note #pebble
+
+## 2026-11-11 22:40
+
+Note with a location.
+
+[location:: geo:35.681,139.767]
+[location_label:: Tokyo Station]
+`;
+
+test("plugin append format parses like the built-in format", () => {
+  const entries = parsePebbleIndex(PLUGIN_SAMPLE);
+  assert.equal(entries.length, 4);
+  assert.equal(entries[0].date, "2026-11-11");
+  assert.equal(entries[0].time, "19:34");
+  assert.equal(entries[0].body, "First note via the plugin.");
+  assert.equal(entries[1].body, "Multi-line note\nsecond line here.");
+});
+
+test("plugin location metadata lines are dropped from the body", () => {
+  const entries = parsePebbleIndex(PLUGIN_SAMPLE);
+  assert.equal(entries[3].body, "Note with a location.");
+});
+
+test("plugin tag is kept by default and stripped when configured", () => {
+  const kept = parsePebbleIndex(PLUGIN_SAMPLE);
+  assert.equal(kept[2].body, "Tagged note #pebble");
+  const stripped = parsePebbleIndex(PLUGIN_SAMPLE, { pluginTag: "pebble" });
+  assert.equal(stripped[2].body, "Tagged note");
+  // Tag stripping must not eat a mid-text hashtag or a different tag.
+  const other = parsePebbleIndex("## 2026-11-11 10:00\n\nUse #pebble wisely #other\n", {
+    pluginTag: "pebble",
+  });
+  assert.equal(other[0].body, "Use #pebble wisely #other");
+});
+
+test("plugin entries file and dedupe like built-in entries", () => {
+  const entries = parsePebbleIndex(PLUGIN_SAMPLE, { pluginTag: "pebble" });
+  const daily = insertEntriesIntoDaily("# 2026-11-11\n", entries, "pebble");
+  assert.ok(daily.includes("- 21:12 : Tagged note"));
+  assert.ok(daily.includes("- 22:40 : Note with a location."));
+  const found = idsPresentInDailyBody(daily, "2026-11-11");
+  for (const e of entries) assert.ok(found.has(e.id), `missing ${e.id}`);
+});

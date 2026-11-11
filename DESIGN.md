@@ -19,9 +19,13 @@ daily note of the day they were made.
 
 ## Approach
 
-Source: the Pebble integration in **One main note** mode appends entries to
-`Pebble Index.md` under headings like `## 2026-11-10 14:30`, body running
-until the next heading. The plugin:
+Source: Pebble appends entries to `Pebble Index.md` under headings like
+`## 2026-11-10 14:30`, body running until the next heading. Two writers
+produce this shape: the built-in integration in **One main note** mode,
+and (since v0.3.0) the official Obsidian/Markdown Notes plugin in its
+append mode — its blocks are identical except for an optional trailing
+` #tag` and `[location:: …]` metadata lines, which the parser cleans.
+The plugin:
 
 1. Parses the source note into dated entries.
 2. Resolves the destination from the Daily Notes core plugin config

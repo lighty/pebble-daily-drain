@@ -50,13 +50,28 @@ function entryId(date, time, body) {
 ${flattenBody(body)}`).slice(0, 10);
   return `${date.replace(/-/g, "")}-${time.replace(":", "")}-${digest}`;
 }
-function parsePebbleIndex(content) {
+var LOCATION_LINE = /^\[(?:location|location_label)::.*\]\s*$/;
+function cleanPluginBody(raw, pluginTag) {
+  let body = normalizeBody(raw).split("\n").filter((line) => !LOCATION_LINE.test(line.trim())).join("\n");
+  body = normalizeBody(body);
+  const tag = (pluginTag != null ? pluginTag : "").trim().replace(/^#/, "");
+  if (tag) {
+    const suffix = ` #${tag}`;
+    if (body.endsWith(suffix)) {
+      body = normalizeBody(body.slice(0, -suffix.length));
+    } else if (body === `#${tag}`) {
+      body = "";
+    }
+  }
+  return body;
+}
+function parsePebbleIndex(content, opts) {
   const lines = content.replace(/\r\n/g, "\n").split("\n");
   const entries = [];
   let current = null;
   const flush = () => {
     if (!current) return;
-    const body = normalizeBody(current.bodyLines.join("\n"));
+    const body = cleanPluginBody(current.bodyLines.join("\n"), opts == null ? void 0 : opts.pluginTag);
     if (body) {
       entries.push({
         date: current.date,
@@ -174,6 +189,7 @@ var DEFAULT_SETTINGS = {
   sourcePath: "Pebble Index.md",
   dailyFolderOverride: "",
   sectionTitle: "pebble",
+  pluginTag: "",
   autoOnStartup: true,
   autoOnModify: true
 };
@@ -238,7 +254,9 @@ var PebbleDailyDrain = class extends import_obsidian.Plugin {
       new import_obsidian.Notice(`Pebble Daily Drain: source note not found: ${sourcePath}`);
       return null;
     }
-    const entries = parsePebbleIndex(await this.app.vault.read(source));
+    const entries = parsePebbleIndex(await this.app.vault.read(source), {
+      pluginTag: this.settings.pluginTag
+    });
     if (entries.length === 0) {
       new import_obsidian.Notice("Pebble Daily Drain: no entries found in the source note.");
       return null;
@@ -360,7 +378,9 @@ var DailyDrainSettingTab = class extends import_obsidian.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian.Setting(containerEl).setName("Source note").setDesc('The note the Pebble app appends to ("One main note" mode).').addText(
+    new import_obsidian.Setting(containerEl).setName("Source note").setDesc(
+      `The note Pebble appends to: the built-in integration's "One main note", or the note selected in the Obsidian/Markdown Notes plugin's append mode.`
+    ).addText(
       (text) => text.setPlaceholder("Pebble Index.md").setValue(this.plugin.settings.sourcePath).onChange(async (value) => {
         this.plugin.settings.sourcePath = value.trim() || "Pebble Index.md";
         await this.plugin.saveSettings();
@@ -375,6 +395,14 @@ var DailyDrainSettingTab = class extends import_obsidian.PluginSettingTab {
     new import_obsidian.Setting(containerEl).setName("Section heading").setDesc("Entries are filed as bullets under this heading in the daily note.").addText(
       (text) => text.setPlaceholder("pebble").setValue(this.plugin.settings.sectionTitle).onChange(async (value) => {
         this.plugin.settings.sectionTitle = value.trim() || "pebble";
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Pebble plugin tag").setDesc(
+      'Only for the Obsidian/Markdown Notes plugin: if you set a tag there, the plugin appends " #tag" to every note. Enter the same tag here (without #) to strip it from filed entries. Leave empty if unset.'
+    ).addText(
+      (text) => text.setPlaceholder("(none)").setValue(this.plugin.settings.pluginTag).onChange(async (value) => {
+        this.plugin.settings.pluginTag = value.trim().replace(/^#/, "");
         await this.plugin.saveSettings();
       })
     );

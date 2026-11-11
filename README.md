@@ -4,10 +4,12 @@ An [Obsidian](https://obsidian.md) plugin that files your
 [Pebble Index 01](https://repebble.com) voice notes into **daily notes** —
 one note per day.
 
-The Pebble app's built-in Obsidian integration appends every recording to a
-single `Pebble Index.md`. This plugin periodically drains those entries into
-the daily note for the day each recording was made, so your ring notes live
-next to everything else in that day.
+Every Pebble recording lands in a single `Pebble Index.md` in your vault —
+written either by the Pebble app's built-in Obsidian integration, or by the
+official Obsidian/Markdown Notes plugin (append mode). This plugin
+periodically drains those entries into the daily note for the day each
+recording was made, so your ring notes live next to everything else in
+that day.
 
 Inside the daily note, entries are filed as a compact bullet list under a
 `## pebble` section:
@@ -28,34 +30,56 @@ Multi-line transcripts are flattened onto the bullet's single line.
 
 ## Setup
 
-1. In the Pebble app, set the Obsidian integration to **One main note**
-   (the mode that appends to `Pebble Index.md`). This must be the app's
-   *built-in* integration — see the note about the Plugins preview below.
+1. Set up **one** of the two supported ways for Pebble to append notes to
+   a single file in your vault (see "Where the notes come from" below).
+   The recommended route is the official Obsidian/Markdown Notes plugin.
 2. Install this plugin (see below).
 3. Done — it drains on startup and whenever `Pebble Index.md` changes.
    You can also run it manually from the command palette.
 
-### Requirement: the built-in integration, not the Pebble "Plugins" preview
+### Where the notes come from
 
-This plugin reads `Pebble Index.md`, a file written by the Pebble app's
-**built-in** Obsidian integration. It does not work with the Pebble app's
-**Plugins** feature (in the Pebble app: Settings → Plugins →
-"Plugins / permissions preview"). That feature is a developer preview of a
-new extensibility system in the Pebble mobile app — not to be confused
-with Obsidian community plugins such as this one.
+Daily Drain reads one source note (`Pebble Index.md` by default) made of
+`## YYYY-MM-DD HH:MM` entry blocks. Two Pebble-side writers produce
+exactly that shape, and archives written by one keep working after you
+switch to the other:
 
-While the Plugins preview is on, note destinations are provided by Pebble
-plugins instead of the built-in integrations, and the built-in Obsidian
-integration stops appending to `Pebble Index.md` — so there is nothing for
-Daily Drain to file.
+**Route A — the official Obsidian/Markdown Notes plugin (recommended)**
 
-**Keep the Plugins preview OFF.** If your notes suddenly stop arriving in
-Obsidian:
+This is the Pebble app's **Plugins** system (Pebble app → Settings →
+Plugins → "Plugins / permissions preview") — not to be confused with
+Obsidian community plugins such as this one.
 
-1. Pebble app → Settings → Plugins → turn the preview off.
-2. Restart the Pebble app.
-3. Record a short test note and check that `Pebble Index.md` gains a new
-   `## YYYY-MM-DD HH:MM` entry.
+1. Turn the Plugins preview **on**.
+2. Install the **Obsidian/Markdown Notes** plugin from the Pebble
+   appstore and grant it read/write access when asked.
+3. In the plugin's settings:
+   - pick your vault as the folder,
+   - set the note mode to **Append to an existing note** and select
+     `Pebble Index.md` (or whichever note Daily Drain reads),
+   - leave **Tag** empty (or set the same tag in Daily Drain's
+     "Pebble plugin tag" setting so it is stripped when filing),
+   - placement: **bottom** (entries stay chronological; top also works).
+4. Make sure the Index notes destination points at
+   Obsidian/Markdown Notes, then record a test note and check that
+   `Pebble Index.md` gains a new `## YYYY-MM-DD HH:MM` block.
+
+> The plugin's **"create a separate note per recording"** mode is *not*
+> a supported source: each recording becomes its own file, and Daily
+> Drain reads a single appended note. Use append mode.
+
+**Route B — the built-in integration (legacy)**
+
+Keep the Plugins preview **off** and set the Pebble app's built-in
+Obsidian integration to **One main note**. While the Plugins preview is
+on, the built-in destinations are hidden in favour of plugin ones, so
+the two routes are mutually exclusive — pick one.
+
+If your notes suddenly stop arriving, check the route you chose: for
+Route A, the Plugins preview must be on and the Obsidian/Markdown Notes
+plugin configured (folder granted, append target selected); for Route B,
+the preview must be off. A short test recording should add a new
+`## YYYY-MM-DD HH:MM` block to the source note either way.
 
 ## Install
 
@@ -101,9 +125,10 @@ individual assets.
 
 | Setting | Default | Notes |
 | --- | --- | --- |
-| Source note | `Pebble Index.md` | The note the Pebble app appends to. |
+| Source note | `Pebble Index.md` | The note Pebble appends to. |
 | Daily notes folder override | *(empty)* | Empty = use the Daily Notes core plugin's folder/format/template. |
 | Section heading | `pebble` | Entries are filed as bullets under this heading. |
+| Pebble plugin tag | *(empty)* | Route A only: the tag set in the Obsidian/Markdown Notes plugin, stripped from filed entries. |
 | Run on startup | On | Runs a few seconds after launch, to let sync settle. |
 | Run when the source note changes | On | Debounced. |
 
@@ -152,6 +177,13 @@ Layout: `src/core.ts` is pure logic with no Obsidian imports (unit-tested);
 
 ## Status / limitations
 
+- **v0.3.0** — supports the Pebble app's official Obsidian/Markdown Notes
+  plugin (Plugins preview, append mode) as the note source, alongside the
+  legacy built-in integration: both write identical
+  `## YYYY-MM-DD HH:MM` blocks. The parser additionally drops the
+  plugin's `[location:: …]` metadata lines and can strip the plugin's
+  configured ` #tag` suffix (new "Pebble plugin tag" setting). The
+  plugin's separate-file ("create") mode is not a supported source yet.
 - **v0.2.0** — daily-note format changed: entries are filed as bullets
   (`- HH:MM : text`) under a `## pebble` section instead of one heading
   per entry. Dedupe IDs are now computed from the flattened single-line
