@@ -176,7 +176,7 @@ export default class PebbleDailyDrain extends Plugin {
         let file = plan.file;
         if (!file) {
           await this.ensureFolder(plan.path);
-          let initial = `# ${plan.date}\n`;
+          let initial = "";
           if (dn.template) {
             const tpl = this.app.vault.getAbstractFileByPath(normalizePath(dn.template));
             if (tpl instanceof TFile) initial = await this.app.vault.read(tpl);

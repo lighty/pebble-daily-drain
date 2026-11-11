@@ -304,8 +304,7 @@ var PebbleDailyDrain = class extends import_obsidian.Plugin {
         let file = plan.file;
         if (!file) {
           await this.ensureFolder(plan.path);
-          let initial = `# ${plan.date}
-`;
+          let initial = "";
           if (dn.template) {
             const tpl = this.app.vault.getAbstractFileByPath((0, import_obsidian.normalizePath)(dn.template));
             if (tpl instanceof import_obsidian.TFile) initial = await this.app.vault.read(tpl);

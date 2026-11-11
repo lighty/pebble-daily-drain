@@ -191,6 +191,8 @@ Layout: `src/core.ts` is pure logic with no Obsidian imports (unit-tested);
   plugin's `[location:: …]` metadata lines and can strip the plugin's
   configured ` #tag` suffix (new "Pebble plugin tag" setting). The
   plugin's separate-file ("create") mode is not a supported source yet.
+  Daily notes created without a template no longer start with a
+  `# YYYY-MM-DD` heading.
 - **v0.2.0** — daily-note format changed: entries are filed as bullets
   (`- HH:MM : text`) under a `## pebble` section instead of one heading
   per entry. Dedupe IDs are now computed from the flattened single-line
