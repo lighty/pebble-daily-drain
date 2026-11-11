@@ -70,15 +70,22 @@ Obsidian community plugins such as this one.
 
 **Route B — the built-in integration (legacy)**
 
-Keep the Plugins preview **off** and set the Pebble app's built-in
-Obsidian integration to **One main note**. While the Plugins preview is
-on, the built-in destinations are hidden in favour of plugin ones, so
-the two routes are mutually exclusive — pick one.
+Set the Pebble app's built-in Obsidian integration to **One main note**
+(or to append to a named note, and point Daily Drain's "Source note" at
+it). Both modes write the same `## YYYY-MM-DD HH:MM` blocks.
+
+The built-in integration only shows up in the destination list while the
+Plugins preview is **off**. If it is already selected, turning the preview
+on does not stop it: notes keep being written, but the Pebble app asks you
+to relink it as a plugin and you can no longer pick it again. The Pebble
+app says the built-in integrations will be removed in an upcoming version,
+so plan to move to Route A.
 
 If your notes suddenly stop arriving, check the route you chose: for
 Route A, the Plugins preview must be on and the Obsidian/Markdown Notes
 plugin configured (folder granted, append target selected); for Route B,
-the preview must be off. A short test recording should add a new
+check that the built-in Obsidian integration is still the Index notes
+destination. A short test recording should add a new
 `## YYYY-MM-DD HH:MM` block to the source note either way.
 
 ## Install
